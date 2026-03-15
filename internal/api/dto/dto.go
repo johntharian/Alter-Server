@@ -112,6 +112,24 @@ type StatusUpdateEvent struct {
 	Status    string `json:"status"`
 }
 
+// Managed Bot
+
+type ProvisionManagedBotReq struct {
+	UserID int64 `json:"user_id,string"`
+}
+
+type ProvisionManagedBotRes struct {
+	BotURL string `json:"bot_url"`
+}
+
+type InternalMessageInfo struct {
+	ID          int64           `json:"id,string"`
+	SenderID    int64           `json:"sender_id,string"`
+	RecipientID int64           `json:"recipient_id,string"`
+	Content     json.RawMessage `json:"content"`
+	CreatedAt   string          `json:"created_at"`
+}
+
 // Generic error
 
 type ErrorRes struct {

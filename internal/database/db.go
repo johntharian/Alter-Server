@@ -3,10 +3,12 @@ package database
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/john/botsapp/internal/logger"
+	"github.com/john/botsapp/internal/models"
 )
 
 func Connect(databaseURL string) (*pgxpool.Pool, error) {
@@ -31,7 +33,7 @@ func Connect(databaseURL string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
-	log.Println("Connected to PostgreSQL")
+	logger.Info("Connected to PostgreSQL", nil)
 	return pool, nil
 }
 
@@ -91,6 +93,9 @@ func RunMigrations(pool *pgxpool.Pool) error {
 		`CREATE INDEX IF NOT EXISTS idx_messages_to_user ON messages (to_user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_messages_status
 			ON messages (status) WHERE status = 'queued'`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_managed_bot BOOLEAN DEFAULT FALSE`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS managed_bot_url TEXT`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS managed_bot_secret TEXT`,
 		`ALTER TABLE users ENABLE ROW LEVEL SECURITY`,
 		`ALTER TABLE bot_endpoints ENABLE ROW LEVEL SECURITY`,
 		`ALTER TABLE contacts ENABLE ROW LEVEL SECURITY`,
@@ -104,6 +109,36 @@ func RunMigrations(pool *pgxpool.Pool) error {
 		}
 	}
 
-	log.Println("Database migrations completed")
+	logger.Info("Database migrations completed", nil)
 	return nil
+}
+
+// SetManagedBot marks a user as a managed bot and stores the bot URL and secret.
+func SetManagedBot(ctx context.Context, pool *pgxpool.Pool, userID int64, botURL, secret string) error {
+	tag, err := pool.Exec(ctx,
+		`UPDATE users SET is_managed_bot = true, managed_bot_url = $1, managed_bot_secret = $2, updated_at = now()
+		 WHERE id = $3`,
+		botURL, secret, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("set managed bot: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("set managed bot: user %d not found", userID)
+	}
+	return nil
+}
+
+// GetUserWithBotConfig returns a user with managed bot fields populated.
+func GetUserWithBotConfig(ctx context.Context, pool *pgxpool.Pool, userID int64) (*models.User, error) {
+	var u models.User
+	err := pool.QueryRow(ctx,
+		`SELECT id, phone_number, display_name, is_managed_bot, managed_bot_url, managed_bot_secret, created_at, updated_at
+		 FROM users WHERE id = $1`,
+		userID,
+	).Scan(&u.ID, &u.PhoneNumber, &u.DisplayName, &u.IsManagedBot, &u.ManagedBotURL, &u.ManagedBotSecret, &u.CreatedAt, &u.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("get user with bot config: %w", err)
+	}
+	return &u, nil
 }

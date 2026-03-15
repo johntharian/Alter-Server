@@ -9,6 +9,7 @@ import (
 
 	"github.com/john/botsapp/internal/api/handlers"
 	"github.com/john/botsapp/internal/auth"
+	"github.com/john/botsapp/internal/config"
 	"github.com/john/botsapp/internal/queue"
 	redisclient "github.com/john/botsapp/internal/redis"
 )
@@ -19,11 +20,12 @@ func NewRouter(
 	rmq *queue.RabbitMQ,
 	jwtSvc *auth.JWTService,
 	otpSvc *auth.OTPService,
+	cfg *config.Config,
 ) chi.Router {
 	r := chi.NewRouter()
 
 	// Global middleware
-	r.Use(middleware.Logger)
+	r.Use(RequestLogger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 
@@ -34,6 +36,7 @@ func NewRouter(
 	messagesH := handlers.NewMessagesHandler(db, rmq, rdb)
 	threadsH := handlers.NewThreadsHandler(db, rdb)
 	feedH := handlers.NewFeedHandler(rdb)
+	managedBotH := handlers.NewManagedBotHandler(db, cfg.ManagedBotServiceURL, cfg.ServiceToken)
 
 	// Health check
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +48,7 @@ func NewRouter(
 	r.Post("/auth/otp/request", authH.RequestOTP)
 	r.Post("/auth/otp/verify", authH.VerifyOTP)
 
-	// Protected routes
+	// Protected routes (JWT only)
 	r.Group(func(r chi.Router) {
 		r.Use(jwtSvc.Middleware)
 
@@ -59,9 +62,6 @@ func NewRouter(
 		r.Post("/contacts/sync", contactsH.Sync)
 		r.Get("/contacts", contactsH.List)
 
-		// Messages
-		r.Post("/messages", messagesH.Send)
-
 		// Threads
 		r.Get("/threads", threadsH.List)
 		r.Get("/threads/{id}/messages", threadsH.GetMessages)
@@ -70,6 +70,23 @@ func NewRouter(
 
 		// WebSocket feed
 		r.Get("/ws/feed", feedH.ServeWS)
+
+		// Managed bot provisioning (JWT protected)
+		r.Post("/internal/managed-bot/provision", managedBotH.Provision)
+	})
+
+	// Dual auth routes (JWT or service token)
+	r.Group(func(r chi.Router) {
+		r.Use(DualAuthMiddleware(jwtSvc, cfg.ServiceToken))
+
+		r.Post("/messages", messagesH.Send)
+	})
+
+	// Service-token-only routes
+	r.Group(func(r chi.Router) {
+		r.Use(handlers.ServiceTokenMiddleware(cfg.ServiceToken))
+
+		r.Get("/internal/threads/{thread_id}/messages", managedBotH.GetThreadMessages)
 	})
 
 	return r

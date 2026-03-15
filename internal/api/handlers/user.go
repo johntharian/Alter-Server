@@ -11,6 +11,7 @@ import (
 
 	"github.com/john/botsapp/internal/api/dto"
 	"github.com/john/botsapp/internal/auth"
+	"github.com/john/botsapp/internal/logger"
 	redisclient "github.com/john/botsapp/internal/redis"
 )
 
@@ -110,7 +111,12 @@ func (h *UserHandler) UpdateBot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update Redis cache (convert ID to string)
-	_ = h.redis.Set(r.Context(), "bot:"+strconv.FormatInt(claims.UserID, 10), req.URL, 0)
+	if err := h.redis.Set(r.Context(), "bot:"+strconv.FormatInt(claims.UserID, 10), req.URL, 0); err != nil {
+		logger.Error("Failed to store bot endpoint in redis cache", map[string]interface{}{
+			"user_id": claims.UserID,
+			"error":   err.Error(),
+		})
+	}
 
 	writeJSON(w, http.StatusOK, dto.BotEndpointRes{
 		UserID:   claims.UserID,

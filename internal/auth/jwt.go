@@ -63,7 +63,8 @@ func (s *JWTService) ValidateToken(tokenStr string) (*Claims, error) {
 // Context key for storing claims
 type contextKey string
 
-const claimsKey contextKey = "claims"
+// ClaimsKey is exported so other packages (e.g. dual-auth middleware) can inject claims.
+const ClaimsKey contextKey = "claims"
 
 // Middleware returns an HTTP middleware that validates JWT tokens.
 func (s *JWTService) Middleware(next http.Handler) http.Handler {
@@ -92,13 +93,13 @@ func (s *JWTService) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), claimsKey, claims)
+		ctx := context.WithValue(r.Context(), ClaimsKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 // GetClaims retrieves the JWT claims from the request context.
 func GetClaims(ctx context.Context) *Claims {
-	claims, _ := ctx.Value(claimsKey).(*Claims)
+	claims, _ := ctx.Value(ClaimsKey).(*Claims)
 	return claims
 }

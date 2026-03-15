@@ -6,11 +6,14 @@ import (
 )
 
 type User struct {
-	ID          int64     `json:"id,string" db:"id"`
-	PhoneNumber string    `json:"phone_number" db:"phone_number"`
-	DisplayName string    `json:"display_name" db:"display_name"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+	ID              int64     `json:"id,string" db:"id"`
+	PhoneNumber     string    `json:"phone_number" db:"phone_number"`
+	DisplayName     string    `json:"display_name" db:"display_name"`
+	IsManagedBot    bool      `json:"is_managed_bot" db:"is_managed_bot"`
+	ManagedBotURL   *string   `json:"managed_bot_url,omitempty" db:"managed_bot_url"`
+	ManagedBotSecret *string  `json:"-" db:"managed_bot_secret"`
+	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type BotEndpoint struct {

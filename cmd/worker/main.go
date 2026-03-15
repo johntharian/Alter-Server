@@ -11,6 +11,7 @@ import (
 
 	"github.com/john/botsapp/internal/config"
 	"github.com/john/botsapp/internal/database"
+	"github.com/john/botsapp/internal/logger"
 	"github.com/john/botsapp/internal/queue"
 	redisclient "github.com/john/botsapp/internal/redis"
 	"github.com/john/botsapp/internal/worker"
@@ -20,26 +21,34 @@ func main() {
 	_ = godotenv.Load()
 	cfg := config.Load()
 
-	log.Println("Starting BotsApp Delivery Worker...")
+	if err := logger.Init("logs/worker.log", cfg.LogLevel); err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	defer logger.Close()
+
+	logger.Info("Starting BotsApp Delivery Worker...", nil)
 
 	// Initialize PostgreSQL
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("Database connection failed: %v", err)
+		logger.Error("Database connection failed", map[string]interface{}{"error": err.Error()})
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	// Initialize Redis
 	rdb, err := redisclient.Connect(cfg.RedisURL)
 	if err != nil {
-		log.Fatalf("Redis connection failed: %v", err)
+		logger.Error("Redis connection failed", map[string]interface{}{"error": err.Error()})
+		os.Exit(1)
 	}
 	defer rdb.Close()
 
 	// Initialize RabbitMQ
 	rmq, err := queue.Connect(cfg.RabbitMQURL)
 	if err != nil {
-		log.Fatalf("RabbitMQ connection failed: %v", err)
+		logger.Error("RabbitMQ connection failed", map[string]interface{}{"error": err.Error()})
+		os.Exit(1)
 	}
 	defer rmq.Close()
 
@@ -52,12 +61,13 @@ func main() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		<-sigCh
-		log.Println("Shutting down worker...")
+		logger.Info("Shutting down worker...", nil)
 		cancel()
 	}()
 
 	if err := consumer.Start(ctx); err != nil {
-		log.Fatalf("Worker error: %v", err)
+		logger.Error("Worker error", map[string]interface{}{"error": err.Error()})
+		os.Exit(1)
 	}
-	log.Println("Worker stopped")
+	logger.Info("Worker stopped", nil)
 }

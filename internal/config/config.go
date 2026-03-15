@@ -7,13 +7,16 @@ import (
 )
 
 type Config struct {
-	APIPort     string
-	Env         string
-	DatabaseURL string
-	RedisURL    string
-	RabbitMQURL string
-	JWTSecret   string
-	OTPTtl      time.Duration
+	APIPort              string
+	Env                  string
+	DatabaseURL          string
+	RedisURL             string
+	RabbitMQURL          string
+	JWTSecret            string
+	OTPTtl               time.Duration
+	ManagedBotServiceURL string
+	ServiceToken         string
+	LogLevel             string
 }
 
 func Load() *Config {
@@ -24,7 +27,10 @@ func Load() *Config {
 		RedisURL:    getEnv("REDIS_URL", "redis://localhost:6379/0"),
 		RabbitMQURL: getEnv("RABBITMQ_URL", "amqp://botsapp:botsapp@localhost:5672/"),
 		JWTSecret:   getEnv("JWT_SECRET", "dev-secret-key-do-not-use-in-production"),
-		OTPTtl:      time.Duration(getEnvInt("OTP_TTL_SECONDS", 300)) * time.Second,
+		OTPTtl:               time.Duration(getEnvInt("OTP_TTL_SECONDS", 300)) * time.Second,
+		ManagedBotServiceURL: getEnv("MANAGED_BOT_SERVICE_URL", "http://localhost:8081"),
+		ServiceToken:         getEnv("SERVICE_TOKEN", ""),
+		LogLevel:             getEnv("LOG_LEVEL", "info"),
 	}
 }
 

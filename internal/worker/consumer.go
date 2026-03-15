@@ -2,10 +2,10 @@ package worker
 
 import (
 	"context"
-	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/john/botsapp/internal/logger"
 	"github.com/john/botsapp/internal/queue"
 	redisclient "github.com/john/botsapp/internal/redis"
 )
@@ -29,22 +29,22 @@ func (c *Consumer) Start(ctx context.Context) error {
 		return err
 	}
 
-	log.Println("[Worker] Delivery worker started, waiting for messages...")
+	logger.Info("Delivery worker started, waiting for messages...", nil)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("[Worker] Shutting down...")
+			logger.Info("Shutting down...", nil)
 			return nil
 		case delivery, ok := <-msgs:
 			if !ok {
-				log.Println("[Worker] Channel closed, exiting")
+				logger.Info("Channel closed, exiting", nil)
 				return nil
 			}
 
 			shouldAck, err := c.deliverer.Deliver(ctx, delivery.Body)
 			if err != nil {
-				log.Printf("[Worker] Delivery error: %v", err)
+				logger.Error("Delivery error", map[string]interface{}{"error": err.Error()})
 			}
 
 			if shouldAck {

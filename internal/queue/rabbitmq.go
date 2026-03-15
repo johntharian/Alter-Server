@@ -3,9 +3,9 @@ package queue
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
+	"github.com/john/botsapp/internal/logger"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -42,7 +42,7 @@ func Connect(url string) (*RabbitMQ, error) {
 		return nil, fmt.Errorf("setup topology: %w", err)
 	}
 
-	log.Println("Connected to RabbitMQ")
+	logger.Info("Connected to RabbitMQ", nil)
 	return rmq, nil
 }
 
@@ -100,7 +100,7 @@ func (r *RabbitMQ) setupTopology() error {
 		return fmt.Errorf("set qos: %w", err)
 	}
 
-	log.Println("RabbitMQ topology configured")
+	logger.Info("RabbitMQ topology configured", nil)
 	return nil
 }
 

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/john/botsapp/internal/api/dto"
 	"github.com/john/botsapp/internal/auth"
+	"github.com/john/botsapp/internal/logger"
 	"github.com/john/botsapp/internal/queue"
 	redisclient "github.com/john/botsapp/internal/redis"
 )
@@ -72,9 +72,12 @@ func (h *MessagesHandler) Send(w http.ResponseWriter, r *http.Request) {
 
 	// Check if thread is in human takeover mode by someone else
 	var takeoverBy *int64
-	_ = h.db.QueryRow(r.Context(),
+	err = h.db.QueryRow(r.Context(),
 		`SELECT human_takeover_by FROM threads WHERE id = $1`, threadID,
 	).Scan(&takeoverBy)
+	if err != nil && err.Error() != "no rows in result set" {
+		logger.Error("Failed to check human_takeover_by", map[string]interface{}{"thread_id": threadID, "error": err.Error()})
+	}
 
 	humanOverride := false
 	if takeoverBy != nil && *takeoverBy == fromID {
@@ -101,9 +104,12 @@ func (h *MessagesHandler) Send(w http.ResponseWriter, r *http.Request) {
 
 	// Get sender's phone number for the envelope
 	var fromPhone string
-	_ = h.db.QueryRow(r.Context(),
+	err = h.db.QueryRow(r.Context(),
 		`SELECT phone_number FROM users WHERE id = $1`, fromID,
 	).Scan(&fromPhone)
+	if err != nil {
+		logger.Error("Failed to get sender phone number", map[string]interface{}{"user_id": fromID, "error": err.Error()})
+	}
 
 	// Enqueue for delivery
 	queueMsg := map[string]interface{}{
@@ -119,10 +125,12 @@ func (h *MessagesHandler) Send(w http.ResponseWriter, r *http.Request) {
 	body, _ := json.Marshal(queueMsg)
 
 	if err := h.rmq.Publish(r.Context(), body); err != nil {
-		log.Printf("Failed to enqueue message %d: %v", messageID, err)
+		logger.Error("Failed to enqueue message", map[string]interface{}{"message_id": messageID, "error": err.Error()})
 		// Update status to failed
-		_, _ = h.db.Exec(r.Context(),
-			`UPDATE messages SET status = 'failed' WHERE id = $1`, messageID)
+		if _, dbErr := h.db.Exec(r.Context(),
+			`UPDATE messages SET status = 'failed' WHERE id = $1`, messageID); dbErr != nil {
+			logger.Error("Failed to update message status to failed", map[string]interface{}{"message_id": messageID, "error": dbErr.Error()})
+		}
 		writeJSON(w, http.StatusInternalServerError, dto.ErrorRes{Error: "failed to enqueue message"})
 		return
 	}
@@ -146,8 +154,12 @@ func (h *MessagesHandler) Send(w http.ResponseWriter, r *http.Request) {
 	
 	importStrconv := strconv.FormatInt
 	
-	_ = h.redis.Publish(r.Context(), "user:"+importStrconv(fromID, 10)+":feed", string(eventJSON))
-	_ = h.redis.Publish(r.Context(), "user:"+importStrconv(toUserID, 10)+":feed", string(eventJSON))
+	if err := h.redis.Publish(r.Context(), "user:"+importStrconv(fromID, 10)+":feed", string(eventJSON)); err != nil {
+		logger.Error("Failed to publish feed event", map[string]interface{}{"user_id": fromID, "error": err.Error()})
+	}
+	if err := h.redis.Publish(r.Context(), "user:"+importStrconv(toUserID, 10)+":feed", string(eventJSON)); err != nil {
+		logger.Error("Failed to publish feed event", map[string]interface{}{"user_id": toUserID, "error": err.Error()})
+	}
 
 	// Return 202 Accepted — message is queued, not yet delivered
 	writeJSON(w, http.StatusAccepted, dto.SendMessageRes{

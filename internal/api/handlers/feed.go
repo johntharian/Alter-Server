@@ -2,13 +2,13 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/gorilla/websocket"
 
 	"github.com/john/botsapp/internal/auth"
+	"github.com/john/botsapp/internal/logger"
 	redisclient "github.com/john/botsapp/internal/redis"
 )
 
@@ -38,7 +38,7 @@ func (h *FeedHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("WebSocket upgrade failed: %v", err)
+		logger.Error("WebSocket upgrade failed", map[string]interface{}{"error": err.Error()})
 		return
 	}
 	defer conn.Close()
@@ -46,7 +46,7 @@ func (h *FeedHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	userID := claims.UserID
 	channel := "user:" + strconv.FormatInt(userID, 10) + ":feed"
 
-	log.Printf("[WS] User %d connected to feed", userID)
+	logger.Info("User connected to feed", map[string]interface{}{"user_id": userID})
 
 	// Subscribe to user's feed channel
 	ctx := r.Context()
@@ -83,7 +83,7 @@ func (h *FeedHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 			}
 			conn.WriteJSON(event)
 		case <-done:
-			log.Printf("[WS] User %d disconnected from feed", userID)
+			logger.Info("User disconnected from feed", map[string]interface{}{"user_id": userID})
 			return
 		case <-ctx.Done():
 			return

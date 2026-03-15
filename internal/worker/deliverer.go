@@ -7,16 +7,18 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/john/botsapp/internal/logger"
 	redisclient "github.com/john/botsapp/internal/redis"
 )
 
@@ -54,11 +56,15 @@ const maxRetries = 5
 func (d *Deliverer) Deliver(ctx context.Context, body []byte) (shouldAck bool, err error) {
 	var msg QueueMessage
 	if err := json.Unmarshal(body, &msg); err != nil {
-		log.Printf("[Deliver] Failed to parse message: %v", err)
+		logger.Error("Failed to parse message", map[string]interface{}{"error": err.Error(), "body": string(body)})
 		return true, err // Ack bad messages (don't retry)
 	}
 
-	log.Printf("[Deliver] Processing message %d from %s to %s", msg.MessageID, msg.FromPhone, msg.ToPhone)
+	logger.Info("Processing message", map[string]interface{}{
+		"message_id": msg.MessageID,
+		"from_phone": msg.FromPhone,
+		"to_phone":   msg.ToPhone,
+	})
 
 	// Get current retry count
 	var retryCount int
@@ -66,14 +72,14 @@ func (d *Deliverer) Deliver(ctx context.Context, body []byte) (shouldAck bool, e
 		`SELECT retry_count FROM messages WHERE id = $1`, msg.MessageID,
 	).Scan(&retryCount)
 	if err != nil {
-		log.Printf("[Deliver] Message %d not found in DB: %v", msg.MessageID, err)
+		logger.Error("Message not found in DB", map[string]interface{}{"message_id": msg.MessageID, "error": err.Error()})
 		return true, err
 	}
 
-	// Look up recipient's bot URL (Redis cache → DB fallback)
-	botURL, secretKey, err := d.getBotEndpoint(ctx, msg.ToUserID)
+	// Check if recipient is a managed bot first, then fall back to bot_endpoints
+	botURL, secretKey, isManagedBot, err := d.resolveBotEndpoint(ctx, msg.ToUserID)
 	if err != nil {
-		log.Printf("[Deliver] No bot endpoint for user %d: %v", msg.ToUserID, err)
+		logger.Error("No bot endpoint", map[string]interface{}{"user_id": msg.ToUserID, "error": err.Error()})
 		d.updateStatus(ctx, msg, "failed")
 		return true, err
 	}
@@ -101,9 +107,18 @@ func (d *Deliverer) Deliver(ctx context.Context, body []byte) (shouldAck bool, e
 		return d.handleFailure(ctx, msg, retryCount, fmt.Errorf("create request: %w", err))
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if isManagedBot {
+		req.Header.Set("X-Hub-Signature-256", "sha256="+signature)
+	}
 	req.Header.Set("X-Botsapp-Signature", signature)
 	req.Header.Set("X-Botsapp-Message-ID", strconv.FormatInt(msg.MessageID, 10))
 
+	logger.Info("Attempting delivery", map[string]interface{}{
+		"message_id": msg.MessageID,
+		"bot_url":    botURL,
+	})
+
+	start := time.Now()
 	resp, err := d.client.Do(req)
 	if err != nil {
 		return d.handleFailure(ctx, msg, retryCount, fmt.Errorf("http call: %w", err))
@@ -111,8 +126,14 @@ func (d *Deliverer) Deliver(ctx context.Context, body []byte) (shouldAck bool, e
 	defer resp.Body.Close()
 	io.Copy(io.Discard, resp.Body)
 
+	logger.Info("Delivery complete", map[string]interface{}{
+		"message_id":  msg.MessageID,
+		"bot_url":     botURL,
+		"status_code": resp.StatusCode,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
+
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		log.Printf("[Deliver] Message %d delivered (status %d)", msg.MessageID, resp.StatusCode)
 		d.updateStatus(ctx, msg, "delivered")
 		return true, nil
 	}
@@ -123,7 +144,11 @@ func (d *Deliverer) Deliver(ctx context.Context, body []byte) (shouldAck bool, e
 
 func (d *Deliverer) handleFailure(ctx context.Context, msg QueueMessage, retryCount int, deliveryErr error) (bool, error) {
 	retryCount++
-	log.Printf("[Deliver] Message %d attempt %d failed: %v", msg.MessageID, retryCount, deliveryErr)
+	logger.Warn("Message attempt failed", map[string]interface{}{
+		"message_id": msg.MessageID,
+		"attempt":    retryCount,
+		"error":      deliveryErr.Error(),
+	})
 
 	// Update retry count
 	_, _ = d.db.Exec(ctx,
@@ -132,7 +157,7 @@ func (d *Deliverer) handleFailure(ctx context.Context, msg QueueMessage, retryCo
 	)
 
 	if retryCount >= maxRetries {
-		log.Printf("[Deliver] Message %d exhausted retries, marking failed", msg.MessageID)
+		logger.Error("Message exhausted retries, marking failed", map[string]interface{}{"message_id": msg.MessageID})
 		d.updateStatus(ctx, msg, "failed")
 		return false, deliveryErr // Nack → goes to DLQ via RabbitMQ DLX
 	}
@@ -142,7 +167,10 @@ func (d *Deliverer) handleFailure(ctx context.Context, msg QueueMessage, retryCo
 	if delay > 60*time.Second {
 		delay = 60 * time.Second
 	}
-	log.Printf("[Deliver] Message %d will retry in %s", msg.MessageID, delay)
+	logger.Info("Scheduling message retry", map[string]interface{}{
+		"message_id": msg.MessageID,
+		"delay":      delay.String(),
+	})
 	time.Sleep(delay)
 
 	return false, deliveryErr // Nack for requeue
@@ -154,7 +182,11 @@ func (d *Deliverer) updateStatus(ctx context.Context, msg QueueMessage, status s
 		status, msg.MessageID,
 	)
 	if err != nil {
-		log.Printf("[Deliver] Failed to update status for %d: %v", msg.MessageID, err)
+		logger.Error("Failed to update status", map[string]interface{}{
+			"message_id": msg.MessageID,
+			"status":     status,
+			"error":      err.Error(),
+		})
 	}
 
 	// Publish status update via Redis Pub/Sub to both participants
@@ -170,6 +202,62 @@ func (d *Deliverer) updateStatus(ctx context.Context, msg QueueMessage, status s
 
 	_ = d.redis.Publish(ctx, "user:"+strconv.FormatInt(msg.FromUserID, 10)+":feed", string(eventJSON))
 	_ = d.redis.Publish(ctx, "user:"+strconv.FormatInt(msg.ToUserID, 10)+":feed", string(eventJSON))
+}
+
+// managedBotCache holds cached managed bot connection details.
+type managedBotCache struct {
+	IsManaged bool   `json:"is_managed"`
+	URL       string `json:"url,omitempty"`
+	Secret    string `json:"secret,omitempty"`
+}
+
+// resolveBotEndpoint checks if the user is a managed bot first, then falls back to bot_endpoints.
+func (d *Deliverer) resolveBotEndpoint(ctx context.Context, userID int64) (url, secretKey string, isManagedBot bool, err error) {
+	cacheKey := "managed_bot_config:" + strconv.FormatInt(userID, 10)
+	cached, err := d.redis.Get(ctx, cacheKey)
+	if err == nil && cached != "" {
+		var cache managedBotCache
+		if err := json.Unmarshal([]byte(cached), &cache); err == nil {
+			if cache.IsManaged {
+				return cache.URL, cache.Secret, true, nil
+			}
+			urlRes, secretRes, errRes := d.getBotEndpoint(ctx, userID)
+			return urlRes, secretRes, false, errRes
+		}
+	}
+
+	var isManaged bool
+	var managedURL, managedSecret *string
+	err = d.db.QueryRow(ctx,
+		`SELECT is_managed_bot, managed_bot_url, managed_bot_secret FROM users WHERE id = $1`,
+		userID,
+	).Scan(&isManaged, &managedURL, &managedSecret)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", "", false, fmt.Errorf("user not found: %w", err)
+		}
+		return "", "", false, fmt.Errorf("query managed bot: %w", err)
+	}
+
+	cacheData := managedBotCache{
+		IsManaged: isManaged,
+	}
+	if isManaged && managedURL != nil && managedSecret != nil {
+		cacheData.URL = *managedURL
+		cacheData.Secret = *managedSecret
+	}
+
+	if cacheBytes, err := json.Marshal(cacheData); err == nil {
+		_ = d.redis.Set(ctx, cacheKey, string(cacheBytes), 5*time.Minute)
+	}
+
+	if cacheData.IsManaged {
+		return cacheData.URL, cacheData.Secret, true, nil
+	}
+
+	urlRes, secretRes, errRes := d.getBotEndpoint(ctx, userID)
+	return urlRes, secretRes, false, errRes
 }
 
 func (d *Deliverer) getBotEndpoint(ctx context.Context, userID int64) (url, secretKey string, err error) {

@@ -15,6 +15,7 @@ import (
 	"github.com/john/botsapp/internal/auth"
 	"github.com/john/botsapp/internal/config"
 	"github.com/john/botsapp/internal/database"
+	"github.com/john/botsapp/internal/logger"
 	"github.com/john/botsapp/internal/queue"
 	redisclient "github.com/john/botsapp/internal/redis"
 )
@@ -23,31 +24,40 @@ func main() {
 	_ = godotenv.Load()
 	cfg := config.Load()
 
-	log.Println("Starting BotsApp API server...")
+	if err := logger.Init("logs/server.log", cfg.LogLevel); err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	defer logger.Close()
+
+	logger.Info("Starting BotsApp API server...", nil)
 
 	// Initialize PostgreSQL
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("Database connection failed: %v", err)
+		logger.Error("Database connection failed", map[string]interface{}{"error": err.Error()})
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	// Run migrations
 	if err := database.RunMigrations(db); err != nil {
-		log.Fatalf("Migration failed: %v", err)
+		logger.Error("Migration failed", map[string]interface{}{"error": err.Error()})
+		os.Exit(1)
 	}
 
 	// Initialize Redis
 	rdb, err := redisclient.Connect(cfg.RedisURL)
 	if err != nil {
-		log.Fatalf("Redis connection failed: %v", err)
+		logger.Error("Redis connection failed", map[string]interface{}{"error": err.Error()})
+		os.Exit(1)
 	}
 	defer rdb.Close()
 
 	// Initialize RabbitMQ
 	rmq, err := queue.Connect(cfg.RabbitMQURL)
 	if err != nil {
-		log.Fatalf("RabbitMQ connection failed: %v", err)
+		logger.Error("RabbitMQ connection failed", map[string]interface{}{"error": err.Error()})
+		os.Exit(1)
 	}
 	defer rmq.Close()
 
@@ -56,7 +66,7 @@ func main() {
 	otpSvc := auth.NewOTPService(rdb, cfg.OTPTtl)
 
 	// Create router
-	router := api.NewRouter(db, rdb, rmq, jwtSvc, otpSvc)
+	router := api.NewRouter(db, rdb, rmq, jwtSvc, otpSvc, cfg)
 
 	// Start HTTP server
 	srv := &http.Server{
@@ -72,15 +82,16 @@ func main() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		<-sigCh
-		log.Println("Shutting down API server...")
+		logger.Info("Shutting down API server...", nil)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		srv.Shutdown(ctx)
 	}()
 
-	log.Printf("API server listening on :%s", cfg.APIPort)
+	logger.Info("API server listening", map[string]interface{}{"port": cfg.APIPort})
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatalf("Server error: %v", err)
+		logger.Error("Server error", map[string]interface{}{"error": err.Error()})
+		os.Exit(1)
 	}
-	log.Println("Server stopped")
+	logger.Info("Server stopped", nil)
 }

@@ -3,10 +3,10 @@ package redis
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/john/botsapp/internal/logger"
 )
 
 type Client struct {
@@ -26,7 +26,7 @@ func Connect(redisURL string) (*Client, error) {
 		return nil, fmt.Errorf("ping redis: %w", err)
 	}
 
-	log.Println("Connected to Redis")
+	logger.Info("Connected to Redis", nil)
 	return &Client{rdb: rdb}, nil
 }
 
