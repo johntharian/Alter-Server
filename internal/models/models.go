@@ -42,10 +42,11 @@ type Thread struct {
 type MessageStatus string
 
 const (
-	StatusQueued    MessageStatus = "queued"
-	StatusDelivered MessageStatus = "delivered"
-	StatusProcessed MessageStatus = "processed"
-	StatusFailed    MessageStatus = "failed"
+	StatusQueued          MessageStatus = "queued"
+	StatusDelivered       MessageStatus = "delivered"
+	StatusClientDelivered MessageStatus = "client_delivered"
+	StatusProcessed       MessageStatus = "processed"
+	StatusFailed          MessageStatus = "failed"
 )
 
 type Message struct {

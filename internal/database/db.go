@@ -83,7 +83,7 @@ func RunMigrations(pool *pgxpool.Pool) error {
 			intent TEXT DEFAULT '',
 			payload JSONB DEFAULT '{}',
 			status TEXT DEFAULT 'queued'
-				CHECK (status IN ('queued','delivered','processed','failed')),
+				CHECK (status IN ('queued','delivered','client_delivered','processed','failed')),
 			human_override BOOLEAN DEFAULT false,
 			retry_count INT DEFAULT 0,
 			created_at TIMESTAMPTZ DEFAULT now()

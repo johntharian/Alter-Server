@@ -23,14 +23,15 @@ import (
 )
 
 type QueueMessage struct {
-	MessageID  int64           `json:"message_id"`
-	ThreadID   int64           `json:"thread_id"`
-	FromUserID int64           `json:"from_user_id"`
-	ToUserID   int64           `json:"to_user_id"`
-	FromPhone  string          `json:"from_phone"`
-	ToPhone    string          `json:"to_phone"`
-	Intent     string          `json:"intent"`
-	Payload    json.RawMessage `json:"payload"`
+	MessageID     int64           `json:"message_id"`
+	ThreadID      int64           `json:"thread_id"`
+	FromUserID    int64           `json:"from_user_id"`
+	ToUserID      int64           `json:"to_user_id"`
+	FromPhone     string          `json:"from_phone"`
+	ToPhone       string          `json:"to_phone"`
+	Intent        string          `json:"intent"`
+	Payload       json.RawMessage `json:"payload"`
+	HumanOverride bool            `json:"human_override"`
 }
 
 type Deliverer struct {
@@ -76,12 +77,27 @@ func (d *Deliverer) Deliver(ctx context.Context, body []byte) (shouldAck bool, e
 		return true, err
 	}
 
-	// Check if recipient is a managed bot first, then fall back to bot_endpoints
-	botURL, secretKey, isManagedBot, err := d.resolveBotEndpoint(ctx, msg.ToUserID)
+	// If the thread is in human takeover or recipient is a regular user, skip bot delivery.
+	// The new_message WS event was already published at send time — the message is in the DB
+	// and visible to the client. Just mark it client_delivered and ack.
+	botURL, secretKey, isManagedBot, isRegularUser, err := d.resolveBotEndpoint(ctx, msg.ToUserID)
 	if err != nil {
 		logger.Error("No bot endpoint", map[string]interface{}{"user_id": msg.ToUserID, "error": err.Error()})
 		d.updateStatus(ctx, msg, "failed")
 		return true, err
+	}
+
+	if isRegularUser || msg.HumanOverride {
+		reason := "regular user recipient"
+		if msg.HumanOverride {
+			reason = "human takeover active"
+		}
+		logger.Info("Skipping bot delivery", map[string]interface{}{
+			"message_id": msg.MessageID,
+			"reason":     reason,
+		})
+		d.updateStatus(ctx, msg, "client_delivered")
+		return true, nil
 	}
 
 	// Build the message envelope
@@ -126,17 +142,29 @@ func (d *Deliverer) Deliver(ctx context.Context, body []byte) (shouldAck bool, e
 	defer resp.Body.Close()
 	io.Copy(io.Discard, resp.Body)
 
-	logger.Info("Delivery complete", map[string]interface{}{
-		"message_id":  msg.MessageID,
-		"bot_url":     botURL,
-		"status_code": resp.StatusCode,
-		"duration_ms": time.Since(start).Milliseconds(),
-	})
+	duration := time.Since(start).Milliseconds()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		io.Copy(io.Discard, resp.Body)
+		logger.Info("Delivery complete", map[string]interface{}{
+			"message_id":  msg.MessageID,
+			"bot_url":     botURL,
+			"status_code": resp.StatusCode,
+			"duration_ms": duration,
+		})
 		d.updateStatus(ctx, msg, "delivered")
 		return true, nil
 	}
+
+	// Read response body for error detail on non-2xx
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+	logger.Error("Bot delivery failed", map[string]interface{}{
+		"message_id":    msg.MessageID,
+		"bot_url":       botURL,
+		"status_code":   resp.StatusCode,
+		"duration_ms":   duration,
+		"response_body": string(respBody),
+	})
 
 	return d.handleFailure(ctx, msg, retryCount,
 		fmt.Errorf("bot returned status %d", resp.StatusCode))
@@ -212,17 +240,21 @@ type managedBotCache struct {
 }
 
 // resolveBotEndpoint checks if the user is a managed bot first, then falls back to bot_endpoints.
-func (d *Deliverer) resolveBotEndpoint(ctx context.Context, userID int64) (url, secretKey string, isManagedBot bool, err error) {
+// Returns isRegularUser=true (with no error) when the recipient has no bot configured at all.
+func (d *Deliverer) resolveBotEndpoint(ctx context.Context, userID int64) (url, secretKey string, isManagedBot bool, isRegularUser bool, err error) {
 	cacheKey := "managed_bot_config:" + strconv.FormatInt(userID, 10)
 	cached, err := d.redis.Get(ctx, cacheKey)
 	if err == nil && cached != "" {
 		var cache managedBotCache
 		if err := json.Unmarshal([]byte(cached), &cache); err == nil {
 			if cache.IsManaged {
-				return cache.URL, cache.Secret, true, nil
+				return cache.URL, cache.Secret, true, false, nil
 			}
 			urlRes, secretRes, errRes := d.getBotEndpoint(ctx, userID)
-			return urlRes, secretRes, false, errRes
+			if errors.Is(errRes, pgx.ErrNoRows) {
+				return "", "", false, true, nil
+			}
+			return urlRes, secretRes, false, false, errRes
 		}
 	}
 
@@ -235,9 +267,9 @@ func (d *Deliverer) resolveBotEndpoint(ctx context.Context, userID int64) (url, 
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", "", false, fmt.Errorf("user not found: %w", err)
+			return "", "", false, false, fmt.Errorf("user not found: %w", err)
 		}
-		return "", "", false, fmt.Errorf("query managed bot: %w", err)
+		return "", "", false, false, fmt.Errorf("query managed bot: %w", err)
 	}
 
 	cacheData := managedBotCache{
@@ -253,11 +285,14 @@ func (d *Deliverer) resolveBotEndpoint(ctx context.Context, userID int64) (url, 
 	}
 
 	if cacheData.IsManaged {
-		return cacheData.URL, cacheData.Secret, true, nil
+		return cacheData.URL, cacheData.Secret, true, false, nil
 	}
 
 	urlRes, secretRes, errRes := d.getBotEndpoint(ctx, userID)
-	return urlRes, secretRes, false, errRes
+	if errors.Is(errRes, pgx.ErrNoRows) {
+		return "", "", false, true, nil
+	}
+	return urlRes, secretRes, false, false, errRes
 }
 
 func (d *Deliverer) getBotEndpoint(ctx context.Context, userID int64) (url, secretKey string, err error) {

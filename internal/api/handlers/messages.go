@@ -113,14 +113,15 @@ func (h *MessagesHandler) Send(w http.ResponseWriter, r *http.Request) {
 
 	// Enqueue for delivery
 	queueMsg := map[string]interface{}{
-		"message_id":   messageID,
-		"thread_id":    threadID,
-		"from_user_id": fromID,
-		"to_user_id":   toUserID,
-		"from_phone":   fromPhone,
-		"to_phone":     req.To,
-		"intent":       req.Intent,
-		"payload":      payload,
+		"message_id":     messageID,
+		"thread_id":      threadID,
+		"from_user_id":   fromID,
+		"to_user_id":     toUserID,
+		"from_phone":     fromPhone,
+		"to_phone":       req.To,
+		"intent":         req.Intent,
+		"payload":        payload,
+		"human_override": humanOverride,
 	}
 	body, _ := json.Marshal(queueMsg)
 
