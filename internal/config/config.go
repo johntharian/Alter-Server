@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -17,6 +18,7 @@ type Config struct {
 	ManagedBotServiceURL string
 	ServiceToken         string
 	LogLevel             string
+	CORSAllowedOrigins   []string
 }
 
 func Load() *Config {
@@ -31,6 +33,7 @@ func Load() *Config {
 		ManagedBotServiceURL: getEnv("MANAGED_BOT_SERVICE_URL", "http://localhost:8081"),
 		ServiceToken:         getEnv("SERVICE_TOKEN", ""),
 		LogLevel:             getEnv("LOG_LEVEL", "info"),
+		CORSAllowedOrigins:   getEnvStringSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000"}),
 	}
 }
 
@@ -46,6 +49,13 @@ func getEnvInt(key string, fallback int) int {
 		if i, err := strconv.Atoi(v); err == nil {
 			return i
 		}
+	}
+	return fallback
+}
+
+func getEnvStringSlice(key string, fallback []string) []string {
+	if v := os.Getenv(key); v != "" {
+		return strings.Split(v, ",")
 	}
 	return fallback
 }
