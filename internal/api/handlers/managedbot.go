@@ -43,30 +43,21 @@ func (h *ManagedBotHandler) Provision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req dto.ProvisionManagedBotReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, dto.ErrorRes{Error: "invalid request body"})
-		return
-	}
-
-	if req.UserID == 0 {
-		writeJSON(w, http.StatusBadRequest, dto.ErrorRes{Error: "user_id is required"})
-		return
-	}
+	userID := claims.UserID
 
 	// Fetch the user's phone number to pass to the managed bot service
 	var phoneNumber string
 	if err := h.db.QueryRow(r.Context(),
-		`SELECT phone_number FROM users WHERE id = $1`, req.UserID,
+		`SELECT phone_number FROM users WHERE id = $1`, userID,
 	).Scan(&phoneNumber); err != nil {
-		logger.Error("Failed to fetch phone number", map[string]interface{}{"user_id": req.UserID, "error": err.Error()})
+		logger.Error("Failed to fetch phone number", map[string]interface{}{"user_id": userID, "error": err.Error()})
 		writeJSON(w, http.StatusInternalServerError, dto.ErrorRes{Error: "failed to look up user"})
 		return
 	}
 
 	// Call the managed bot service
 	provisionBody, _ := json.Marshal(map[string]string{
-		"user_id":      strconv.FormatInt(req.UserID, 10),
+		"user_id":      strconv.FormatInt(userID, 10),
 		"phone_number": phoneNumber,
 	})
 
@@ -106,13 +97,13 @@ func (h *ManagedBotHandler) Provision(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Store in the users table
-	if err := database.SetManagedBot(r.Context(), h.db, req.UserID, provisionRes.BotURL, provisionRes.SecretKey); err != nil {
-		logger.Error("Failed to store bot config", map[string]interface{}{"user_id": req.UserID, "error": err.Error()})
+	if err := database.SetManagedBot(r.Context(), h.db, userID, provisionRes.BotURL, provisionRes.SecretKey); err != nil {
+		logger.Error("Failed to store bot config", map[string]interface{}{"user_id": userID, "error": err.Error()})
 		writeJSON(w, http.StatusInternalServerError, dto.ErrorRes{Error: "failed to store bot configuration"})
 		return
 	}
 
-	logger.Info("Provisioned managed bot", map[string]interface{}{"user_id": req.UserID, "bot_url": provisionRes.BotURL})
+	logger.Info("Provisioned managed bot", map[string]interface{}{"user_id": userID, "bot_url": provisionRes.BotURL})
 	writeJSON(w, http.StatusOK, dto.ProvisionManagedBotRes{BotURL: provisionRes.BotURL})
 }
 

@@ -114,10 +114,6 @@ type StatusUpdateEvent struct {
 
 // Managed Bot
 
-type ProvisionManagedBotReq struct {
-	UserID int64 `json:"user_id,string"`
-}
-
 type ProvisionManagedBotRes struct {
 	BotURL string `json:"bot_url"`
 }
