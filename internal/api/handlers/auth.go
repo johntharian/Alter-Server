@@ -6,8 +6,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/john/botsapp/internal/api/dto"
-	"github.com/john/botsapp/internal/auth"
+	"github.com/john/alter/internal/api/dto"
+	"github.com/john/alter/internal/auth"
 )
 
 type AuthHandler struct {

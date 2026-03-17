@@ -16,7 +16,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	// Import dto to use type definitions
-	"github.com/john/botsapp/internal/api/dto"
+	"github.com/john/alter/internal/api/dto"
 )
 
 var (

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/john/botsapp/internal/logger"
+	"github.com/john/alter/internal/logger"
 )
 
 type Client struct {

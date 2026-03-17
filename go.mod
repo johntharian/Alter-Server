@@ -1,4 +1,4 @@
-module github.com/john/botsapp
+module github.com/john/alter
 
 go 1.25.0
 

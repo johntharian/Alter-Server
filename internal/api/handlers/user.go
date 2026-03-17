@@ -9,10 +9,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/john/botsapp/internal/api/dto"
-	"github.com/john/botsapp/internal/auth"
-	"github.com/john/botsapp/internal/logger"
-	redisclient "github.com/john/botsapp/internal/redis"
+	"github.com/john/alter/internal/api/dto"
+	"github.com/john/alter/internal/auth"
+	"github.com/john/alter/internal/logger"
+	redisclient "github.com/john/alter/internal/redis"
 )
 
 type UserHandler struct {

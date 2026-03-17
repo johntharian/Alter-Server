@@ -7,8 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/john/botsapp/internal/logger"
-	"github.com/john/botsapp/internal/models"
+	"github.com/john/alter/internal/logger"
+	"github.com/john/alter/internal/models"
 )
 
 func Connect(databaseURL string) (*pgxpool.Pool, error) {

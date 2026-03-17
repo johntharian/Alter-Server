@@ -12,10 +12,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/john/botsapp/internal/api/dto"
-	"github.com/john/botsapp/internal/auth"
-	"github.com/john/botsapp/internal/database"
-	"github.com/john/botsapp/internal/logger"
+	"github.com/john/alter/internal/api/dto"
+	"github.com/john/alter/internal/auth"
+	"github.com/john/alter/internal/database"
+	"github.com/john/alter/internal/logger"
 )
 
 type ManagedBotHandler struct {

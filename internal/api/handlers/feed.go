@@ -7,9 +7,9 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/john/botsapp/internal/auth"
-	"github.com/john/botsapp/internal/logger"
-	redisclient "github.com/john/botsapp/internal/redis"
+	"github.com/john/alter/internal/auth"
+	"github.com/john/alter/internal/logger"
+	redisclient "github.com/john/alter/internal/redis"
 )
 
 var upgrader = websocket.Upgrader{

@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/john/botsapp/internal/auth"
-	"github.com/john/botsapp/internal/logger"
+	"github.com/john/alter/internal/auth"
+	"github.com/john/alter/internal/logger"
 )
 
 // DualAuthMiddleware accepts either a JWT Bearer token or an X-Service-Token header.

@@ -9,9 +9,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/john/botsapp/internal/api/dto"
-	"github.com/john/botsapp/internal/auth"
-	redisclient "github.com/john/botsapp/internal/redis"
+	"github.com/john/alter/internal/api/dto"
+	"github.com/john/alter/internal/auth"
+	redisclient "github.com/john/alter/internal/redis"
 )
 
 type ThreadsHandler struct {

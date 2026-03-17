@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"time"
 
-	redisclient "github.com/john/botsapp/internal/redis"
+	redisclient "github.com/john/alter/internal/redis"
 )
 
 const otpKeyPrefix = "otp:"

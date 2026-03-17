@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/john/botsapp/internal/logger"
+	"github.com/john/alter/internal/logger"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 

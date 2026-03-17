@@ -9,12 +9,12 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/john/botsapp/internal/config"
-	"github.com/john/botsapp/internal/database"
-	"github.com/john/botsapp/internal/logger"
-	"github.com/john/botsapp/internal/queue"
-	redisclient "github.com/john/botsapp/internal/redis"
-	"github.com/john/botsapp/internal/worker"
+	"github.com/john/alter/internal/config"
+	"github.com/john/alter/internal/database"
+	"github.com/john/alter/internal/logger"
+	"github.com/john/alter/internal/queue"
+	redisclient "github.com/john/alter/internal/redis"
+	"github.com/john/alter/internal/worker"
 )
 
 func main() {
