@@ -1,7 +1,7 @@
 # Implementation Plan: Interactive Terminal Chat Client
 
 ## Overview
-We need a way for developers to open two terminal windows, authenticate as User A and User B respectively, and manually chat with each other to test the BotsApp HTTP+WebSocket infrastructure end-to-end. We will build a small interactive CLI client in Go.
+We need a way for developers to open two terminal windows, authenticate as User A and User B respectively, and manually chat with each other to test the Alter HTTP+WebSocket infrastructure end-to-end. We will build a small interactive CLI client in Go.
 
 ## Requirements
 - Authenticate via OTP and store JWT
@@ -27,14 +27,14 @@ No changes to the core API server are needed. We will add a new Go binary under 
 2. **Setup Chat Session** (File: `cmd/chatclient/main.go`)
    - Action: Prompt user to enter the phone number of the person they want to chat with.
    - Action: Call `POST /contacts/sync` to ensure they are discovered.
-   - Action: Find the contact's [id](file:///Users/john/Desktop/john/projects/botsapp/internal/auth/jwt.go#68-99) from the sync response.
+   - Action: Find the contact's [id](file:///Users/john/Desktop/john/projects/alter/internal/auth/jwt.go#68-99) from the sync response.
 
 ### Phase 3: WebSocket and Messaging Loop
 3. **Receive Updates via WebSocket** (File: `cmd/chatclient/main.go`)
    - Action: Dial `ws://localhost:8080/ws/feed?token=...`
    - Action: Run a goroutine reading from the WebSocket.
    - Action: When a `new_message` event arrives, print it formatting nicely (e.g., `[Friend]: Hello!`).
-   - Action: When a `status_update` event arrives, display [(Delivered)](file:///Users/john/Desktop/john/projects/botsapp/internal/redis/redis.go#51-54) etc.
+   - Action: When a `status_update` event arrives, display [(Delivered)](file:///Users/john/Desktop/john/projects/alter/internal/redis/redis.go#51-54) etc.
 
 4. **Send Updates via CLI** (File: `cmd/chatclient/main.go`)
    - Action: Read lines from `bufio.Scanner(os.Stdin)`.

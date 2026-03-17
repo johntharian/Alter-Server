@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	ExchangeName    = "botsapp.messages"
-	DLXExchangeName = "botsapp.messages.dlx"
+	ExchangeName    = "alter.messages"
+	DLXExchangeName = "alter.messages.dlx"
 	DeliverQueue    = "messages.deliver"
 	DeadLetterQueue = "messages.dead"
 	DeliverKey      = "deliver"

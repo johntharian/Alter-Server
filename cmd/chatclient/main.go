@@ -29,7 +29,7 @@ var (
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Println("=== BotsApp Terminal Client ===")
+	fmt.Println("=== Alter Terminal Client ===")
 
 	// 1. Auth Flow
 	fmt.Print("Enter your phone number (e.g., +919999900001): ")

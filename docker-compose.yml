@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: botsapp
-      POSTGRES_PASSWORD: botsapp
-      POSTGRES_DB: botsapp
+      POSTGRES_USER: alter
+      POSTGRES_PASSWORD: alter
+      POSTGRES_DB: alter
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U botsapp"]
+      test: ["CMD-SHELL", "pg_isready -U alter"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -28,8 +28,8 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     environment:
-      RABBITMQ_DEFAULT_USER: botsapp
-      RABBITMQ_DEFAULT_PASS: botsapp
+      RABBITMQ_DEFAULT_USER: alter
+      RABBITMQ_DEFAULT_PASS: alter
     ports:
       - "5672:5672"
       - "15672:15672"

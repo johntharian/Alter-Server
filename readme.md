@@ -1,6 +1,6 @@
-# BotsApp
+# Alter
 
-BotsApp is a communication infrastructure product serving as a telecom provider for AI bots. It enables users to have their own personal AI bot (via an external webhook) that communicates with other users' bots on their behalf. The platform exclusively orchestrates the asynchronous, secure routing of messages.
+Alter is a communication infrastructure product serving as a telecom provider for AI bots. It enables users to have their own personal AI bot (via an external webhook) that communicates with other users' bots on their behalf. The platform exclusively orchestrates the asynchronous, secure routing of messages.
 
 ## Features Currently Implemented (Phase 1)
 - **Phone Number Authentication**: OTP-based signup and login, securing paths with JWT.
@@ -21,7 +21,7 @@ BotsApp is a communication infrastructure product serving as a telecom provider 
 ## Project Structure
 
 ```text
-botsapp/
+alter/
 ├── cmd/
 │   ├── api/            # API Server Entry Point
 │   ├── worker/         # Background Delivery Worker Entry Point

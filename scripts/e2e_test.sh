@@ -1,5 +1,5 @@
 #!/bin/bash
-# End-to-end test script for BotsApp Phase 1
+# End-to-end test script for Alter Phase 1
 # Prerequisites: API server running on :8080, all infrastructure up
 
 set -e
@@ -9,7 +9,7 @@ PHONE_A="+919999900001"
 PHONE_B="+919999900002"
 
 echo "=========================================="
-echo "BotsApp E2E Test"
+echo "Alter E2E Test"
 echo "=========================================="
 
 # --- 1. Health Check ---

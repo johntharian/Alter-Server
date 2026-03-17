@@ -29,7 +29,7 @@ func main() {
 	}
 	defer logger.Close()
 
-	logger.Info("Starting BotsApp API server...", nil)
+	logger.Info("Starting Alter API server...", nil)
 
 	// Initialize PostgreSQL
 	db, err := database.Connect(cfg.DatabaseURL)

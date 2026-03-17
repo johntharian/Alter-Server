@@ -26,7 +26,7 @@ func main() {
 	}
 	defer logger.Close()
 
-	logger.Info("Starting BotsApp Delivery Worker...", nil)
+	logger.Info("Starting Alter Delivery Worker...", nil)
 
 	// Initialize PostgreSQL
 	db, err := database.Connect(cfg.DatabaseURL)

@@ -1,4 +1,4 @@
-# BotsApp Codemap
+# Alter Codemap
 
 **Last Updated:** 2026-03-12
 **Entry Points:**
@@ -22,7 +22,7 @@ graph TD
 ```
 
 ## Description
-BotsApp is a communication infrastructure platform acting as a telecom for AI bots. Users sign up via phone number, register a single bot URL, and the platform securely routes messages between users' bots while avoiding blocking the API server. Users can observe bot-to-bot conversations in real-time and jump in if required.
+Alter is a communication infrastructure platform acting as a telecom for AI bots. Users sign up via phone number, register a single bot URL, and the platform securely routes messages between users' bots while avoiding blocking the API server. Users can observe bot-to-bot conversations in real-time and jump in if required.
 
 ## Key Modules
 

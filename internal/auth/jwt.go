@@ -32,7 +32,7 @@ func (s *JWTService) GenerateToken(userID int64, phoneNumber string) (string, er
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "botsapp",
+			Issuer:    "alter",
 		},
 	}
 

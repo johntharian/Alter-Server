@@ -126,8 +126,8 @@ func (d *Deliverer) Deliver(ctx context.Context, body []byte) (shouldAck bool, e
 	if isManagedBot {
 		req.Header.Set("X-Hub-Signature-256", "sha256="+signature)
 	}
-	req.Header.Set("X-Botsapp-Signature", signature)
-	req.Header.Set("X-Botsapp-Message-ID", strconv.FormatInt(msg.MessageID, 10))
+	req.Header.Set("X-Alter-Signature", signature)
+	req.Header.Set("X-Alter-Message-ID", strconv.FormatInt(msg.MessageID, 10))
 
 	logger.Info("Attempting delivery", map[string]interface{}{
 		"message_id": msg.MessageID,

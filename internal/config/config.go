@@ -25,9 +25,9 @@ func Load() *Config {
 	return &Config{
 		APIPort:     getEnv("API_PORT", "8080"),
 		Env:         getEnv("ENV", "development"),
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://botsapp:botsapp@localhost:5432/botsapp?sslmode=disable"),
+		DatabaseURL: getEnv("DATABASE_URL", "postgres://alter:alter@localhost:5432/alter?sslmode=disable"),
 		RedisURL:    getEnv("REDIS_URL", "redis://localhost:6379/0"),
-		RabbitMQURL: getEnv("RABBITMQ_URL", "amqp://botsapp:botsapp@localhost:5672/"),
+		RabbitMQURL: getEnv("RABBITMQ_URL", "amqp://alter:alter@localhost:5672/"),
 		JWTSecret:   getEnv("JWT_SECRET", "dev-secret-key-do-not-use-in-production"),
 		OTPTtl:               time.Duration(getEnvInt("OTP_TTL_SECONDS", 300)) * time.Second,
 		ManagedBotServiceURL: getEnv("MANAGED_BOT_SERVICE_URL", "http://localhost:8081"),
