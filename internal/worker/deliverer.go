@@ -100,6 +100,18 @@ func (d *Deliverer) Deliver(ctx context.Context, body []byte) (shouldAck bool, e
 		return true, nil
 	}
 
+	// "reply" is the terminal intent: a bot's direct response to the user it
+	// is serving. It must never be re-routed into the bot pipeline or it
+	// creates an infinite feedback loop.
+	//
+	// "bot_message" is the cross-bot intent: a bot sending a message to
+	// another user's contact on the owner's behalf. It intentionally falls
+	// through here so the recipient's bot can receive and process the message.
+	if msg.Intent == "reply" {
+		d.updateStatus(ctx, msg, "client_delivered")
+		return true, nil
+	}
+
 	// Build the message envelope
 	envelope := map[string]interface{}{
 		"from":       msg.FromPhone,

@@ -79,12 +79,16 @@ type SendMessageRes struct {
 // Threads
 
 type ThreadInfo struct {
-	ID              int64   `json:"id,string"`
-	ParticipantA    int64   `json:"participant_a,string"`
-	ParticipantB    int64   `json:"participant_b,string"`
-	HumanTakeoverBy *int64  `json:"human_takeover_by,string,omitempty"`
-	LastMessage     *string `json:"last_message,omitempty"`
-	CreatedAt       string  `json:"created_at"`
+	ID                int64   `json:"id,string"`
+	ParticipantA      int64   `json:"participant_a,string"`
+	ParticipantB      int64   `json:"participant_b,string"`
+	ParticipantAName  string  `json:"participant_a_name"`
+	ParticipantAPhone string  `json:"participant_a_phone"`
+	ParticipantBName  string  `json:"participant_b_name"`
+	ParticipantBPhone string  `json:"participant_b_phone"`
+	HumanTakeoverBy   *int64  `json:"human_takeover_by,string,omitempty"`
+	LastMessage       *string `json:"last_message,omitempty"`
+	CreatedAt         string  `json:"created_at"`
 }
 
 type MessageInfo struct {

@@ -28,10 +28,14 @@ func (h *ThreadsHandler) List(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetClaims(r.Context())
 
 	rows, err := h.db.Query(r.Context(),
-		`SELECT id, participant_a, participant_b, human_takeover_by, created_at
-		 FROM threads
-		 WHERE participant_a = $1 OR participant_b = $1
-		 ORDER BY created_at DESC`,
+		`SELECT t.id, t.participant_a, t.participant_b, t.human_takeover_by, t.created_at,
+		        COALESCE(ua.display_name, ''), COALESCE(ua.phone_number, ''),
+		        COALESCE(ub.display_name, ''), COALESCE(ub.phone_number, '')
+		 FROM threads t
+		 LEFT JOIN users ua ON ua.id = t.participant_a
+		 LEFT JOIN users ub ON ub.id = t.participant_b
+		 WHERE t.participant_a = $1 OR t.participant_b = $1
+		 ORDER BY t.created_at DESC`,
 		claims.UserID,
 	)
 	if err != nil {
@@ -44,7 +48,8 @@ func (h *ThreadsHandler) List(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var t dto.ThreadInfo
 		var createdAt time.Time
-		if err := rows.Scan(&t.ID, &t.ParticipantA, &t.ParticipantB, &t.HumanTakeoverBy, &createdAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.ParticipantA, &t.ParticipantB, &t.HumanTakeoverBy, &createdAt,
+			&t.ParticipantAName, &t.ParticipantAPhone, &t.ParticipantBName, &t.ParticipantBPhone); err != nil {
 			continue
 		}
 		t.CreatedAt = createdAt.Format(time.RFC3339)
@@ -160,7 +165,7 @@ func (h *ThreadsHandler) publishFeedEvent(r *http.Request, userID, threadID int6
 
 	event := dto.FeedEvent{
 		Type: eventType,
-		Data: map[string]string{"thread_id": strconv.FormatInt(threadID, 10), "user_id": strconv.FormatInt(userID, 10)},
+		Data: map[string]string{"thread_id": strconv.FormatInt(threadID, 10), "by_user_id": strconv.FormatInt(userID, 10)},
 	}
 	eventJSON, _ := json.Marshal(event)
 

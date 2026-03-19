@@ -58,7 +58,17 @@ func (h *UserHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"message": "updated"})
+	var user dto.UserInfo
+	err = h.db.QueryRow(r.Context(),
+		`SELECT id, phone_number, display_name FROM users WHERE id = $1`,
+		claims.UserID,
+	).Scan(&user.ID, &user.PhoneNumber, &user.DisplayName)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, dto.ErrorRes{Error: "failed to fetch user"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, user)
 }
 
 func (h *UserHandler) GetBot(w http.ResponseWriter, r *http.Request) {
