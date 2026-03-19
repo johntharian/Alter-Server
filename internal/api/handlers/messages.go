@@ -80,7 +80,7 @@ func (h *MessagesHandler) Send(w http.ResponseWriter, r *http.Request) {
 	}
 
 	humanOverride := false
-	if takeoverBy != nil && *takeoverBy == fromID {
+	if takeoverBy != nil && *takeoverBy == toUserID {
 		humanOverride = true
 	}
 
