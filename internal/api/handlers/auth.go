@@ -11,78 +11,64 @@ import (
 )
 
 type AuthHandler struct {
-	db  *pgxpool.Pool
-	otp *auth.OTPService
-	jwt *auth.JWTService
+	db       *pgxpool.Pool
+	firebase *auth.FirebaseService
+	jwt      *auth.JWTService
 }
 
-func NewAuthHandler(db *pgxpool.Pool, otp *auth.OTPService, jwt *auth.JWTService) *AuthHandler {
-	return &AuthHandler{db: db, otp: otp, jwt: jwt}
+func NewAuthHandler(db *pgxpool.Pool, firebase *auth.FirebaseService, jwt *auth.JWTService) *AuthHandler {
+	return &AuthHandler{db: db, firebase: firebase, jwt: jwt}
 }
 
-func (h *AuthHandler) RequestOTP(w http.ResponseWriter, r *http.Request) {
-	var req dto.OTPRequestReq
+// FirebaseVerify handles POST /auth/firebase/verify.
+// The client completes Firebase Phone Auth and sends the resulting ID token here.
+// We verify it, upsert the user, and return our own app JWT.
+func (h *AuthHandler) FirebaseVerify(w http.ResponseWriter, r *http.Request) {
+	var req dto.FirebaseVerifyReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, dto.ErrorRes{Error: "invalid request body"})
 		return
 	}
-
-	if req.PhoneNumber == "" {
-		writeJSON(w, http.StatusBadRequest, dto.ErrorRes{Error: "phone_number is required"})
+	if req.IDToken == "" {
+		writeJSON(w, http.StatusBadRequest, dto.ErrorRes{Error: "id_token is required"})
 		return
 	}
 
-	_, err := h.otp.GenerateAndStore(r.Context(), req.PhoneNumber)
+	token, err := h.firebase.VerifyIDToken(r.Context(), req.IDToken)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, dto.ErrorRes{Error: "failed to generate OTP"})
+		writeJSON(w, http.StatusUnauthorized, dto.ErrorRes{Error: "invalid or expired firebase token"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, dto.OTPRequestRes{Message: "OTP sent successfully"})
-}
-
-func (h *AuthHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
-	var req dto.OTPVerifyReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, dto.ErrorRes{Error: "invalid request body"})
+	phoneNumber, _ := token.Claims["phone_number"].(string)
+	if phoneNumber == "" {
+		writeJSON(w, http.StatusBadRequest, dto.ErrorRes{Error: "token does not contain phone_number"})
 		return
 	}
 
-	if req.PhoneNumber == "" || req.Code == "" {
-		writeJSON(w, http.StatusBadRequest, dto.ErrorRes{Error: "phone_number and code are required"})
-		return
-	}
-
-	valid, err := h.otp.Verify(r.Context(), req.PhoneNumber, req.Code)
-	if err != nil || !valid {
-		writeJSON(w, http.StatusUnauthorized, dto.ErrorRes{Error: "invalid or expired OTP"})
-		return
-	}
-
-	// Upsert user
 	var userID int64
 	var displayName string
 	err = h.db.QueryRow(r.Context(),
 		`INSERT INTO users (phone_number) VALUES ($1)
 		 ON CONFLICT (phone_number) DO UPDATE SET updated_at = now()
-		 RETURNING id, display_name`, req.PhoneNumber,
+		 RETURNING id, display_name`, phoneNumber,
 	).Scan(&userID, &displayName)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, dto.ErrorRes{Error: "failed to create user"})
 		return
 	}
 
-	token, err := h.jwt.GenerateToken(userID, req.PhoneNumber)
+	appToken, err := h.jwt.GenerateToken(userID, phoneNumber)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, dto.ErrorRes{Error: "failed to generate token"})
 		return
 	}
 
 	writeJSON(w, http.StatusOK, dto.OTPVerifyRes{
-		Token: token,
+		Token: appToken,
 		User: dto.UserInfo{
 			ID:          userID,
-			PhoneNumber: req.PhoneNumber,
+			PhoneNumber: phoneNumber,
 			DisplayName: displayName,
 		},
 	})

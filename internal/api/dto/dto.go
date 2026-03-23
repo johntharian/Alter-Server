@@ -4,6 +4,10 @@ import "encoding/json"
 
 // Auth
 
+type FirebaseVerifyReq struct {
+	IDToken string `json:"id_token"`
+}
+
 type OTPRequestReq struct {
 	PhoneNumber string `json:"phone_number"`
 }

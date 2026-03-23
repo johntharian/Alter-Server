@@ -19,6 +19,7 @@ type Config struct {
 	ServiceToken         string
 	LogLevel             string
 	CORSAllowedOrigins   []string
+	FirebaseProjectID string
 }
 
 func Load() *Config {
@@ -34,6 +35,7 @@ func Load() *Config {
 		ServiceToken:         getEnv("SERVICE_TOKEN", ""),
 		LogLevel:             getEnv("LOG_LEVEL", "info"),
 		CORSAllowedOrigins:   getEnvStringSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000"}),
+		FirebaseProjectID: getEnv("FIREBASE_PROJECT_ID", ""),
 	}
 }
 

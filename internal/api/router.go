@@ -20,7 +20,7 @@ func NewRouter(
 	rdb *redisclient.Client,
 	rmq *queue.RabbitMQ,
 	jwtSvc *auth.JWTService,
-	otpSvc *auth.OTPService,
+	firebaseSvc *auth.FirebaseService,
 	cfg *config.Config,
 ) chi.Router {
 	r := chi.NewRouter()
@@ -38,7 +38,7 @@ func NewRouter(
 	r.Use(middleware.RequestID)
 
 	// Handlers
-	authH := handlers.NewAuthHandler(db, otpSvc, jwtSvc)
+	authH := handlers.NewAuthHandler(db, firebaseSvc, jwtSvc)
 	userH := handlers.NewUserHandler(db, rdb)
 	contactsH := handlers.NewContactsHandler(db)
 	messagesH := handlers.NewMessagesHandler(db, rmq, rdb)
@@ -53,8 +53,7 @@ func NewRouter(
 	})
 
 	// Public routes
-	r.Post("/auth/otp/request", authH.RequestOTP)
-	r.Post("/auth/otp/verify", authH.VerifyOTP)
+	r.Post("/auth/firebase/verify", authH.FirebaseVerify)
 
 	// Protected routes (JWT only)
 	r.Group(func(r chi.Router) {

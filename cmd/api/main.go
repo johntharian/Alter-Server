@@ -63,10 +63,14 @@ func main() {
 
 	// Initialize auth services
 	jwtSvc := auth.NewJWTService(cfg.JWTSecret)
-	otpSvc := auth.NewOTPService(rdb, cfg.OTPTtl)
+	firebaseSvc, err := auth.NewFirebaseService(context.Background(), cfg.FirebaseProjectID, os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+	if err != nil {
+		logger.Error("Firebase init failed", map[string]interface{}{"error": err.Error()})
+		os.Exit(1)
+	}
 
 	// Create router
-	router := api.NewRouter(db, rdb, rmq, jwtSvc, otpSvc, cfg)
+	router := api.NewRouter(db, rdb, rmq, jwtSvc, firebaseSvc, cfg)
 
 	// Start HTTP server
 	srv := &http.Server{
