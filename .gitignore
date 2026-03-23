@@ -6,5 +6,7 @@ bin/
 
 .env
 .env.example
+.env.production
+.env.production.example
 
 logs/
